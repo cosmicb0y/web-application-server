@@ -9,6 +9,7 @@ import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -30,32 +31,32 @@ public class RequestHandler extends Thread {
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
             String line = br.readLine();
             String url = HttpRequestUtils.parseURL(line);
+            int length = 0;
             while (!"".equals(line)) {
                 if (line == null) { return;}
+                if (line.contains("Content-Length")) {
+                    length = Integer.parseInt(line.split(" ")[1]);
+                }
                 line = br.readLine();
             }
 
-            httpResponse(out, url);
+            DataOutputStream dos = new DataOutputStream(out);
+            File urlFile = new File("./webapp" + url);
+
+            if (url.contains("/user/create")) {
+                String param = IOUtils.readData(br, length);
+                Map<String, String> paramMap = HttpRequestUtils.parseQueryString(param);
+                user = new User(paramMap.get("userId"), paramMap.get("password"), paramMap.get("name"), paramMap.get("email"));
+                urlFile = new File("./webapp" + "/index.html");
+            }
+
+            byte[] body = Files.readAllBytes(urlFile.toPath());
+            response200Header(dos, body.length);
+            responseBody(dos, body);
+
         } catch (IOException e) {
             log.error(e.getMessage());
         }
-    }
-
-    private void httpResponse(OutputStream out, String url) throws IOException {
-        DataOutputStream dos = new DataOutputStream(out);
-        File urlFile = new File("./webapp" + url);
-
-        if (url.contains("/user/create")) {
-            int index = url.indexOf("?");
-            String param = url.substring(index+1);
-            Map<String, String> paramMap = HttpRequestUtils.parseQueryString(param);
-            user = new User(paramMap.get("userId"), paramMap.get("password"), paramMap.get("name"), paramMap.get("email"));
-            urlFile = new File("./webapp" + "/index.html");
-        }
-
-        byte[] body = Files.readAllBytes(urlFile.toPath());
-        response200Header(dos, body.length);
-        responseBody(dos, body);
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
