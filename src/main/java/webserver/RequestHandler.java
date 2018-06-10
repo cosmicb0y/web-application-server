@@ -3,6 +3,8 @@ package webserver;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 
 import db.DataBase;
@@ -11,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
 import util.IOUtils;
+
+import javax.swing.text.html.HTMLDocument;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -37,11 +41,15 @@ public class RequestHandler extends Thread {
             String line = br.readLine();
             String action = line.split(" ")[0];
             String url = HttpRequestUtils.parseURL(line);
+            String cookie = "";
             int length = 0;
             while (!"".equals(line)) {
                 if (line == null) { return;}
                 if (line.contains("Content-Length")) {
                     length = Integer.parseInt(line.split(" ")[1]);
+                }
+                if (line.contains("Cookie")) {
+                    cookie = line.split(": ")[1];
                 }
                 log.debug(line);
                 line = br.readLine();
@@ -64,6 +72,24 @@ public class RequestHandler extends Thread {
                     return;
                 }
                 responseSignInHeader(dos, "logined=false", "/user/login_failed.html");
+                return;
+            }
+
+            if (url.contains("/user/list")) {
+                Map<String, String> cookieMap = HttpRequestUtils.parseCookies(cookie);
+                if (Boolean.parseBoolean(cookieMap.get("logined"))) {
+                    Collection<User> userList= db.findAll();
+                    StringBuilder userListHTML = new StringBuilder();
+                    Iterator itr = userList.iterator();
+                    while(itr.hasNext()) {
+                        User user = (User)itr.next();
+                        userListHTML.append(user.getUserId() + "\r\n");
+                    }
+                    response200Header(dos, userListHTML.length());
+                    responseBody(dos, String.valueOf(userListHTML).getBytes());
+                    return;
+                }
+                response302Header(dos, "/user/login.html");
                 return;
             }
 
