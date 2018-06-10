@@ -85,7 +85,7 @@ public class RequestHandler extends Thread {
                         User user = (User)itr.next();
                         userListHTML.append(user.getUserId() + "\r\n");
                     }
-                    response200Header(dos, userListHTML.length());
+                    response200Header(dos, userListHTML.length(), "html");
                     responseBody(dos, String.valueOf(userListHTML).getBytes());
                     return;
                 }
@@ -93,8 +93,15 @@ public class RequestHandler extends Thread {
                 return;
             }
 
+            if (url.contains("css")) {
+                byte[] body = Files.readAllBytes(urlFile.toPath());
+                response200Header(dos, body.length, "css");
+                responseBody(dos, body);
+                return;
+            }
+
             byte[] body = Files.readAllBytes(urlFile.toPath());
-            response200Header(dos, body.length);
+            response200Header(dos, body.length, "html");
             responseBody(dos, body);
 
         } catch (IOException e) {
@@ -109,10 +116,10 @@ public class RequestHandler extends Thread {
         response302Header(dos,  "/index.html");
     }
 
-    private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
+    private void response200Header(DataOutputStream dos, int lengthOfBodyContent, String content) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Type: text/" + content + ";charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
